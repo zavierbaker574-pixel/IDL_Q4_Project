@@ -26,20 +26,38 @@
 
   <script>
     document.getElementById("signInForm").addEventListener("submit", function(e) {
-      e.preventDefault();
+  e.preventDefault();
 
-      const name = document.getElementById("name").value;
-      const contact = document.getElementById("contact").value;
-      const time = document.getElementById("time").value;
-      const notes = document.getElementById("notes").value;
+  const name = document.getElementById("name").value;
+  const contact = document.getElementById("contact").value;
+  const time = document.getElementById("time").value;
+  const notes = document.getElementById("notes").value;
 
-      // Log or process data
-      console.log("Sign In Submitted:", { name, contact, time, notes });
-
-      alert("Thanks for signing in!");
-      this.reset();
-    });
+  fetch("https://script.google.com/macros/s/AKfycbx-5YKED68JjnRwSdPy7HYFzG_yfcEA4cNznWJH0KkzcDRBEHJi0ClxTC4pdbuhz97X/exec", {
+    method: "POST",
+    body: JSON.stringify({
+      name: name,
+      contact: contact,
+      timeIn: time,
+      notes: notes
+    }),
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    alert("Signed in successfully!");
+    document.getElementById("signInForm").reset();
+  })
+  .catch(error => {
+    console.error("Error:", error);
+    alert("Something went wrong.");
+  });
+});
   </script>
 </body>
 </html>
+
+
 
