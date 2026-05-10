@@ -1,0 +1,457 @@
+import os
+from tkinter import *
+from tkinterweb import HtmlFrame
+from PIL import Image, ImageTk
+
+
+# ------------------ Window setup ------------------
+win = Tk()
+win.title("Mental Health Resource App")
+win.geometry("1000x950")
+win.configure(bg="#3b82f6")
+
+
+# ------------------ State ------------------
+mode = "search"
+favorites = []
+
+
+# ------------------ Page Switching Logic ------------------
+def start_app():
+    """Hides the blue landing screen and reveals the site with expanded SZB background"""
+    landing_frame.pack_forget()    
+    main_app_frame.pack(fill="both", expand=True)
+    search_resources()              
+
+
+def handle_click(event):
+    """Detects if the click happened within the 'START' button area on the blue screen"""
+    if 180 < event.x < 420 and 150 < event.y < 220:
+        start_app()
+
+
+# ------------------ Core Functions ------------------
+def open_url(url):
+    try:
+        new_win = Toplevel(win)
+        new_win.title("Resource Viewer")
+        new_win.geometry("950x750")
+        frame = HtmlFrame(new_win)
+        frame.pack(fill="both", expand=True)
+        frame.load_website(url)
+    except Exception as e:
+        print(f"Browser Error: {e}")
+
+
+def add_to_favorites(site):
+    if site not in favorites:
+        favorites.append(site)
+        favorites.sort(key=lambda x: (x["category"], x["name"]))
+        search_resources()
+
+
+def remove_from_favorites(site):
+    if site in favorites:
+        favorites.remove(site)
+        show_favorites()
+
+
+def clear_all_favorites():
+    favorites.clear()
+    show_favorites()
+
+
+def show_favorites():
+    global mode
+    mode = "favorites"
+    update_ui_state()
+    for widget in results_frame.winfo_children(): widget.destroy()
+    labelMain.config(text="Your Saved Favorites")
+
+
+    if favorites:
+        for site in favorites:
+            frame = Frame(results_frame, bg="white")
+            frame.pack(fill="x", padx=10, pady=5)
+            lbl = Label(frame, text=f"[{site['category']}] {site['name']}", fg="black", bg="white", font=("Arial", 14), cursor="hand2", anchor="w")
+            lbl.pack(side="left", fill="x", expand=True)
+            Button(frame, text="❌ Remove", bg="red", fg="white", command=lambda s=site: remove_from_favorites(s)).pack(side="right")
+            lbl.bind("<Button-1>", lambda e, url=site["url"]: open_url(url))
+    else:
+        Label(results_frame, text="No favorites saved yet.", fg="black", bg="white", font=("Arial", 14)).pack(pady=20)
+
+
+def search_resources(*args):
+    global mode
+    mode = "search"
+    update_ui_state()
+    for widget in results_frame.winfo_children(): widget.destroy()
+    labelMain.config(text="Search Mental Health Resources")
+   
+    query = search_var.get().strip().lower()
+    filtered = [s for s in sites if query in s['name'].lower() or query in s['category'].lower()] if query else sites
+
+
+    for site in filtered:
+        frame = Frame(results_frame, bg="white")
+        frame.pack(fill="x", padx=10, pady=5)
+        lbl = Label(frame, text=f"[{site['category']}] {site['name']}", fg="black", bg="white", font=("Arial", 14), cursor="hand2", anchor="w")
+        lbl.pack(side="left", fill="x", expand=True)
+       
+        if site in favorites:
+            Button(frame, text="✔ Saved", bg="gray", fg="white", state="disabled").pack(side="right")
+        else:
+            Button(frame, text="⭐ Save", bg="blue", fg="white", command=lambda s=site: add_to_favorites(s)).pack(side="right")
+       
+        lbl.bind("<Button-1>", lambda e, url=site["url"]: open_url(url))
+
+
+def update_ui_state():
+    if mode == "search":
+        favorites_button.pack(pady=5)
+        back_button.pack_forget()
+        clear_favs_button.pack_forget()
+    else:
+        favorites_button.pack_forget()
+        back_button.pack(pady=5)
+        clear_favs_button.pack(pady=5)
+
+
+# ------------------ 1. BLUE LANDING SCREEN ------------------
+landing_frame = Frame(win, bg="#3b82f6")
+landing_frame.pack(fill="both", expand=True)
+
+
+landing_path = r"C:\Users\4268355\Documents\Hackathon\www.reallygreatsite.com.png"
+
+
+try:
+    l_img = Image.open(landing_path)
+    l_resized = l_img.resize((600, 800), Image.Resampling.LANCZOS)
+    bg_landing = ImageTk.PhotoImage(l_resized)
+   
+    img_container = Label(landing_frame, image=bg_landing, bg="#3b82f6", bd=0, cursor="hand2")
+    img_container.image = bg_landing
+    img_container.pack(expand=True)
+    img_container.bind("<Button-1>", handle_click)
+except Exception as e:
+    Button(landing_frame, text="START", command=start_app, font=("Arial", 20)).pack(pady=100)
+
+
+# ------------------ 2. MAIN SITE (SZB.PNG EXPANDED BACKGROUND) ------------------
+main_app_frame = Frame(win)
+bg_path = r"C:\Users\4268355\Documents\Hackathon\SZB.png"
+
+
+try:
+    main_bg_img = Image.open(bg_path)
+    # Resizing image to exactly 1000x950 to fill the frame
+    main_bg_img = main_bg_img.resize((1300, 950), Image.Resampling.LANCZOS)
+    main_bg_photo = ImageTk.PhotoImage(main_bg_img)
+   
+    # highlightthickness=0 removes white border around canvas
+    main_canvas = Canvas(main_app_frame, width=1000, height=950, highlightthickness=0)
+    main_canvas.pack(fill="both", expand=True)
+    main_canvas.create_image(0, 0, image=main_bg_photo, anchor="nw")
+    main_canvas.image = main_bg_photo
+except Exception as e:
+    main_app_frame.configure(bg="white")
+
+
+# UI Elements placed on Canvas
+labelMain = Label(main_app_frame, text="Search Mental Health Resources", font=("Arial", 22, "bold"), bg="white", fg="#3b82f6")
+main_canvas.create_window(500, 50, window=labelMain)
+
+
+search_var = StringVar()
+ent_Search = Entry(main_app_frame, textvariable=search_var, font=("Arial", 18), width=40, bd=2)
+main_canvas.create_window(500, 100, window=ent_Search)
+
+
+btn_nav = Frame(main_app_frame, bg="white")
+favorites_button = Button(btn_nav, text="View Favorites", bg="#3b82f6", fg="white", command=show_favorites)
+back_button = Button(btn_nav, text="← Back to Search", bg="#3b82f6", fg="white", command=search_resources)
+clear_favs_button = Button(btn_nav, text="🗑 Clear All Favorites", bg="red", fg="white", command=clear_all_favorites)
+main_canvas.create_window(500, 160, window=btn_nav)
+
+
+# Results list area
+outer_results = Frame(main_app_frame, bg="white", bd=2, relief="groove")
+main_canvas.create_window(500, 500, window=outer_results, width=800, height=550)
+
+
+canvas_scroll = Canvas(outer_results, bg="white", highlightthickness=0)
+scrollbar = Scrollbar(outer_results, orient="vertical", command=canvas_scroll.yview)
+results_frame = Frame(canvas_scroll, bg="white")
+results_frame.bind("<Configure>", lambda e: canvas_scroll.configure(scrollregion=canvas_scroll.bbox("all")))
+canvas_scroll.create_window((0, 0), window=results_frame, anchor="nw", width=780)
+canvas_scroll.configure(yscrollcommand=scrollbar.set)
+canvas_scroll.pack(side="left", fill="both", expand=True)
+scrollbar.pack(side="right", fill="y")
+
+
+# ------------------ DATA ------------------
+sites = [
+
+
+    # 1) Depression
+    {"category": "Depression", "name": "NIMH – Depression Overview", "url": "https://www.nimh.nih.gov/health/topics/depression"},
+    {"category": "Depression", "name": "Mayo Clinic – Symptoms & Causes", "url": "https://www.mayoclinic.org/diseases-conditions/depression/symptoms-causes/syc-20356007"},
+    {"category": "Depression", "name": "APA – Understanding Depression", "url": "https://www.apa.org/topics/depression"},
+    {"category": "Depression", "name": "HelpGuide – Depression Guide", "url": "https://www.helpguide.org/articles/depression/depression-symptoms-and-warning-signs.htm"},
+    {"category": "Depression", "name": "NAMI – Depression Support", "url": "https://www.nami.org/About-Mental-Illness/Mental-Health-Conditions/Depression"},
+    {"category": "Depression", "name": "MHA – Depression Info", "url": "https://www.mhanational.org/conditions/depression"},
+    {"category": "Depression", "name": "WebMD – Depression Center", "url": "https://www.webmd.com/depression/default.htm"},
+    {"category": "Depression", "name": "WHO – Depression Fact Sheet", "url": "https://www.who.int/news-room/fact-sheets/detail/depression"},
+    {"category": "Depression", "name": "Beyond Blue – Depression (AU)", "url": "https://www.beyondblue.org.au/the-facts/depression"},
+    {"category": "Depression", "name": "Harvard Health – Addressing Depression", "url": "https://www.health.harvard.edu/topics/depression"},
+
+
+    # 2) Anxiety
+    {"category": "Anxiety", "name": "NIMH – Anxiety Disorders", "url": "https://www.nimh.nih.gov/health/topics/anxiety-disorders"},
+    {"category": "Anxiety", "name": "ADAA – Anxiety & Depression Assoc.", "url": "https://adaa.org/"},
+    {"category": "Anxiety", "name": "Mayo Clinic – Anxiety Overview", "url": "https://www.mayoclinic.org/diseases-conditions/anxiety/symptoms-causes/syc-20350961"},
+    {"category": "Anxiety", "name": "MedlinePlus – Anxiety Info", "url": "https://medlineplus.gov/anxiety.html"},
+    {"category": "Anxiety", "name": "NAMI – Anxiety Disorders", "url": "https://www.nami.org/About-Mental-Illness/Mental-Health-Conditions/Anxiety-Disorders"},
+    {"category": "Anxiety", "name": "Mind – Anxiety & Panic (UK)", "url": "https://www.mind.org.uk/information-support/types-of-mental-health-problems/anxiety-and-panic-attacks/"},
+    {"category": "Anxiety", "name": "Psychology Today – Anxiety Guide", "url": "https://www.psychologytoday.com/us/basics/anxiety"},
+    {"category": "Anxiety", "name": "HelpGuide – Anxiety Attacks", "url": "https://www.helpguide.org/articles/anxiety/anxiety-disorders-and-anxiety-attacks.htm"},
+    {"category": "Anxiety", "name": "NHS – Generalised Anxiety (UK)", "url": "https://www.nhs.uk/mental-health/conditions/generalised-anxiety-disorder/"},
+    {"category": "Anxiety", "name": "Cleveland Clinic – Anxiety Disorders", "url": "https://my.clevelandclinic.org/health/diseases/9539-anxiety-disorders"},
+
+
+    # 3) Bipolar Disorder
+    {"category": "Bipolar Disorder", "name": "NIMH – Bipolar Overview", "url": "https://www.nimh.nih.gov/health/topics/bipolar-disorder"},
+    {"category": "Bipolar Disorder", "name": "Mayo Clinic – Bipolar Signs", "url": "https://www.mayoclinic.org/diseases-conditions/bipolar-disorder/symptoms-causes/syc-20355955"},
+    {"category": "Bipolar Disorder", "name": "Psychiatry.org – Bipolar Guide", "url": "https://www.psychiatry.org/patients-families/bipolar-disorders"},
+    {"category": "Bipolar Disorder", "name": "Black Dog Institute – Bipolar", "url": "https://www.blackdoginstitute.org.au/resources-support/bipolar-disorder/"},
+    {"category": "Bipolar Disorder", "name": "NAMI – Bipolar Support", "url": "https://www.nami.org/About-Mental-Illness/Mental-Health-Conditions/Bipolar-Disorder"},
+    {"category": "Bipolar Disorder", "name": "WebMD – Bipolar Center", "url": "https://www.webmd.com/bipolar-disorder/default.htm"},
+    {"category": "Bipolar Disorder", "name": "DBSA – Peer Support", "url": "https://www.dbsalliance.org/"},
+    {"category": "Bipolar Disorder", "name": "Mind – Bipolar Info (UK)", "url": "https://www.mind.org.uk/information-support/types-of-mental-health-problems/bipolar-disorder/"},
+    {"category": "Bipolar Disorder", "name": "HelpGuide – Bipolar Treatment", "url": "https://www.helpguide.org/articles/bipolar-disorder/bipolar-disorder-treatment.htm"},
+    {"category": "Bipolar Disorder", "name": "Johns Hopkins – Bipolar Care", "url": "https://www.hopkinsmedicine.org/health/conditions-and-diseases/bipolar-disorder"},
+
+
+    # 4) OCD
+    {"category": "OCD", "name": "NIMH – OCD Overview", "url": "https://www.nimh.nih.gov/health/topics/obsessive-compulsive-disorder-ocd"},
+    {"category": "OCD", "name": "IOCDF – OCD Foundation", "url": "https://iocdf.org/"},
+    {"category": "OCD", "name": "Mayo Clinic – OCD Signs", "url": "https://www.mayoclinic.org/diseases-conditions/obsessive-compulsive-disorder/symptoms-causes/syc-20354432"},
+    {"category": "OCD", "name": "NHS – OCD Overview (UK)", "url": "https://www.nhs.uk/mental-health/conditions/obsessive-compulsive-disorder-ocd/overview/"},
+    {"category": "OCD", "name": "Mind – OCD Info (UK)", "url": "https://www.mind.org.uk/information-support/types-of-mental-health-problems/obsessive-compulsive-disorder-ocd/"},
+    {"category": "OCD", "name": "HelpGuide – OCD Guide", "url": "https://www.helpguide.org/articles/anxiety/obssessive-compulsive-disorder-ocd.htm"},
+    {"category": "OCD", "name": "TreatMyOCD – NOCD Resources", "url": "https://www.treatmyocd.com/"},
+    {"category": "OCD", "name": "Psychology Today – OCD Basics", "url": "https://www.psychologytoday.com/us/basics/ocd"},
+    {"category": "OCD", "name": "OCD Action (UK)", "url": "https://ocdaction.org.uk/"},
+    {"category": "OCD", "name": "OCD UK – National Charity", "url": "https://www.ocduk.org/"},
+
+    # 5) PTSD
+    {"category": "PTSD", "name": "VA – National Center for PTSD", "url": "https://www.ptsd.va.gov/"},
+    {"category": "PTSD", "name": "NIMH – PTSD Fact Sheet", "url": "https://www.nimh.nih.gov/health/topics/post-traumatic-stress-disorder-ptsd"},
+    {"category": "PTSD", "name": "RAINN – Trauma Resources", "url": "https://www.rainn.org/"},
+    {"category": "PTSD", "name": "NCTSN – Child Trauma", "url": "https://www.nctsn.org/"},
+    {"category": "PTSD", "name": "Mayo Clinic – PTSD Guide", "url": "https://www.mayoclinic.org/diseases-conditions/post-traumatic-stress-disorder/symptoms-causes/syc-20355967"},
+    {"category": "PTSD", "name": "APA – PTSD Resources", "url": "https://www.apa.org/topics/ptsd"},
+    {"category": "PTSD", "name": "PTSD Foundation of America", "url": "https://ptsdusa.org/"},
+    {"category": "PTSD", "name": "Mind – PTSD Overview (UK)", "url": "https://www.mind.org.uk/information-support/types-of-mental-health-problems/post-traumatic-stress-disorder-ptsd/"},
+    {"category": "PTSD", "name": "HelpGuide – PTSD Symptoms", "url": "https://www.helpguide.org/articles/ptsd-trauma/ptsd-symptoms-and-treatment.htm"},
+    {"category": "PTSD", "name": "CPTSD Foundation", "url": "https://cptsdfoundation.org/"},
+
+    # 6) Dissociative Disorders
+    {"category": "Dissociative", "name": "Mayo Clinic – Dissociation", "url": "https://www.mayoclinic.org/diseases-conditions/dissociative-disorders/symptoms-causes/syc-20354047"},
+    {"category": "Dissociative", "name": "NAMI – Dissociative Info", "url": "https://www.nami.org/About-Mental-Illness/Mental-Health-Conditions/Dissociative-Disorders"},
+    {"category": "Dissociative", "name": "Mind – Dissociation (UK)", "url": "https://www.mind.org.uk/information-support/types-of-mental-health-problems/dissociative-disorders/"},
+    {"category": "Dissociative", "name": "Psychology Today – DID", "url": "https://www.psychologytoday.com/us/conditions/dissociative-identity-disorder-multiple-personality-disorder"},
+    {"category": "Dissociative", "name": "WebMD – DID Overview", "url": "https://www.webmd.com/mental-health/dissociative-identity-disorder-multiple-personality-disorder"},
+    {"category": "Dissociative", "name": "Cleveland Clinic – DID", "url": "https://my.clevelandclinic.org/health/diseases/9792-dissociative-identity-disorder-multiple-personality-disorder"},
+    {"category": "Dissociative", "name": "Sheppard Pratt – DID Care", "url": "https://www.sheppardpratt.org/care-finder/dissociative-disorders-institute/"},
+    {"category": "Dissociative", "name": "ISSTD – Patient Resources", "url": "https://www.isst-d.org/public-resources-home/"},
+    {"category": "Dissociative", "name": "Verywell Mind – Depersonalization", "url": "https://www.verywellmind.com/depersonalization-derealization-disorder-2584011"},
+    {"category": "Dissociative", "name": "HelpGuide – Dissociation Info", "url": "https://www.helpguide.org/articles/mental-health/dissociative-disorders.htm"},
+
+    # 7) Somatic Disorders
+    {"category": "Somatic Disorders", "name": "Mayo Clinic – Somatic Symptoms", "url": "https://www.mayoclinic.org/diseases-conditions/somatic-symptom-disorder/symptoms-causes/syc-20377776"},
+    {"category": "Somatic Disorders", "name": "Psychology Today – Somatic", "url": "https://www.psychologytoday.com/us/conditions/somatic-symptom-disorder"},
+    {"category": "Somatic Disorders", "name": "MedlinePlus – Somatic Info", "url": "https://medlineplus.gov/ency/article/000954.htm"},
+    {"category": "Somatic Disorders", "name": "Cleveland Clinic – Illness Anxiety", "url": "https://my.clevelandclinic.org/health/diseases/9886-illness-anxiety-disorder-hypochondriasis"},
+    {"category": "Somatic Disorders", "name": "FND Hope International", "url": "https://fndhope.org/"},
+    {"category": "Somatic Disorders", "name": "Harvard Health – Somatic Care", "url": "https://www.health.harvard.edu/a_to_z/somatic-symptom-disorder-a-to-z"},
+    {"category": "Somatic Disorders", "name": "NHS – Unexplained Symptoms", "url": "https://www.nhs.uk/conditions/medically-unexplained-symptoms/"},
+    {"category": "Somatic Disorders", "name": "MHA – Somatic Symptom Guide", "url": "https://www.mhanational.org/conditions/somatic-symptom-disorder"},
+    {"category": "Somatic Disorders", "name": "Psychiatry.org – Somatic Info", "url": "https://www.psychiatry.org/patients-families/somatic-symptom-disorder"},
+    {"category": "Somatic Disorders", "name": "Verywell Mind – Somatization", "url": "https://www.verywellmind.com/what-is-somatization-disorder-5193079"},
+
+
+    # 8) Eating Disorders
+    {"category": "Eating Disorders", "name": "NEDA – Support & Help", "url": "https://www.nationaleatingdisorders.org/"},
+    {"category": "Eating Disorders", "name": "BEAT – Support (UK)", "url": "https://www.beateatingdisorders.org.uk/"},
+    {"category": "Eating Disorders", "name": "ANAD – Support Groups", "url": "https://anad.org/"},
+    {"category": "Eating Disorders", "name": "NIMH – Eating Disorder Info", "url": "https://www.nimh.nih.gov/health/topics/eating-disorders"},
+    {"category": "Eating Disorders", "name": "Mayo Clinic – Eating Disorders", "url": "https://www.mayoclinic.org/diseases-conditions/eating-disorders/symptoms-causes/syc-20353603"},
+    {"category": "Eating Disorders", "name": "Project HEAL – Recovery", "url": "https://www.theprojectheal.org/"},
+    {"category": "Eating Disorders", "name": "Butterfly Foundation (AU)", "url": "https://butterfly.org.au/"},
+    {"category": "Eating Disorders", "name": "F.E.A.S.T – Families Empowered", "url": "https://www.feast-ed.org/"},
+    {"category": "Eating Disorders", "name": "MHA – Eating Disorders Guide", "url": "https://www.mhanational.org/conditions/eating-disorders"},
+    {"category": "Eating Disorders", "name": "HelpGuide – Bulimia Signs", "url": "https://www.helpguide.org/articles/eating-disorders/bulimia-nervosa.htm"},
+
+    # 9) Sleep Disorders
+    {"category": "Sleep Disorders", "name": "Sleep Foundation – Insomnia", "url": "https://www.sleepfoundation.org/insomnia"},
+    {"category": "Sleep Disorders", "name": "Mayo Clinic – Sleep Health", "url": "https://www.mayoclinic.org/diseases-conditions/sleep-disorders/symptoms-causes/syc-20354018"},
+    {"category": "Sleep Disorders", "name": "AASM – Sleep Education", "url": "https://sleepeducation.org/"},
+    {"category": "Sleep Disorders", "name": "Cleveland Clinic – Sleep Info", "url": "https://my.clevelandclinic.org/health/articles/11429-sleep-disorders"},
+    {"category": "Sleep Disorders", "name": "NHS – Better Sleep (UK)", "url": "https://www.nhs.uk/live-well/sleep-and-tiredness/"},
+    {"category": "Sleep Disorders", "name": "Narcolepsy Network", "url": "https://narcolepsynetwork.org/"},
+    {"category": "Sleep Disorders", "name": "RLS Foundation", "url": "https://www.rls.org/"},
+    {"category": "Sleep Disorders", "name": "Project Sleep", "url": "https://project-sleep.com/"},
+    {"category": "Sleep Disorders", "name": "Harvard – Sleep & Mental Health", "url": "https://www.health.harvard.edu/newsletter_article/sleep-and-mental-health"},
+    {"category": "Sleep Disorders", "name": "Johns Hopkins – Sleep Care", "url": "https://www.hopkinsmedicine.org/health/conditions-and-diseases/sleep-disorders"},
+
+    # 10) Sexual Health
+    {"category": "Sexual Health", "name": "Mayo Clinic – Sexual Dysfunction", "url": "https://www.mayoclinic.org/diseases-conditions/sexual-dysfunction/symptoms-causes/syc-20352774"},
+    {"category": "Sexual Health", "name": "Cleveland Clinic – Sexual Info", "url": "https://my.clevelandclinic.org/health/diseases/9121-sexual-dysfunction"},
+    {"category": "Sexual Health", "name": "Johns Hopkins – Sexual Health", "url": "https://www.hopkinsmedicine.org/health/conditions-and-diseases/sexual-dysfunction"},
+    {"category": "Sexual Health", "name": "MedlinePlus – Sexual Problems", "url": "https://medlineplus.gov/sexualdysfunction.html"},
+    {"category": "Sexual Health", "name": "Psychology Today – Sexual Health", "url": "https://www.psychologytoday.com/us/basics/sexual-health"},
+    {"category": "Sexual Health", "name": "WebMD – Sexual Dysfunction", "url": "https://www.webmd.com/sex-relationships/guide/sexual-dysfunction"},
+    {"category": "Sexual Health", "name": "Harvard – Sexual Health Info", "url": "https://www.health.harvard.edu/topics/sexual-health"},
+    {"category": "Sexual Health", "name": "AASECT – Professionals List", "url": "https://www.aasect.org/"},
+    {"category": "Sexual Health", "name": "Healthline – Sexual Wellness", "url": "https://www.healthline.com/health/sexual-health"},
+    {"category": "Sexual Health", "name": "Verywell – Sexual Dysfunction", "url": "https://www.verywellmind.com/what-is-sexual-dysfunction-5069911"},
+
+
+    # 11) Gender Support
+    {"category": "Gender Support", "name": "WPATH – Care Standards", "url": "https://www.wpath.org/publications/soc"},
+    {"category": "Gender Support", "name": "Psychology Today – Dysphoria", "url": "https://www.psychologytoday.com/us/conditions/gender-dysphoria"},
+    {"category": "Gender Support", "name": "PFLAG – Support Resources", "url": "https://pflag.org/"},
+    {"category": "Gender Support", "name": "Trevor Project – LGBTQ Care", "url": "https://www.thetrevorproject.org/"},
+    {"category": "Gender Support", "name": "GLAAD – Transgender Info", "url": "https://www.glaad.org/transgender/resources"},
+    {"category": "Gender Support", "name": "Psychiatry.org – Dysphoria", "url": "https://www.psychiatry.org/patients-families/gender-dysphoria"},
+    {"category": "Gender Support", "name": "HRC – Gender Identity", "url": "https://www.hrc.org/resources/transgender"},
+    {"category": "Gender Support", "name": "Gender Spectrum", "url": "https://www.genderspectrum.org/"},
+    {"category": "Gender Support", "name": "UCSF – Transgender Health", "url": "https://transcare.ucsf.edu/"},
+    {"category": "Gender Support", "name": "Trans Lifeline", "url": "https://translifeline.org/"},
+
+
+    # 12) Neurodevelopmental
+    {"category": "Neurodevelopmental", "name": "CDC – Autism (ASD)", "url": "https://www.cdc.gov/ncbddd/autism/index.html"},
+    {"category": "Neurodevelopmental", "name": "CHADD – ADHD Resources", "url": "https://chadd.org/"},
+    {"category": "Neurodevelopmental", "name": "ASAN – Autistic Advocacy", "url": "https://autisticadvocacy.org/"},
+    {"category": "Neurodevelopmental", "name": "NIMH – ADHD Fact Sheet", "url": "https://www.nimh.nih.gov/health/topics/attention-deficit-hyperactivity-disorder-adhd"},
+    {"category": "Neurodevelopmental", "name": "Tourette Assoc. of America", "url": "https://tourette.org/"},
+    {"category": "Neurodevelopmental", "name": "National Autism Assoc.", "url": "https://nationalautismassociation.org/"},
+    {"category": "Neurodevelopmental", "name": "ADDitude Mag – ADHD Info", "url": "https://www.additudemag.com/"},
+    {"category": "Neurodevelopmental", "name": "Autism Speaks – Resources", "url": "https://www.autismspeaks.org/resource-guide"},
+    {"category": "Neurodevelopmental", "name": "Mayo Clinic – Autism Spectrum", "url": "https://www.mayoclinic.org/diseases-conditions/autism-spectrum-disorder/symptoms-causes/syc-20352928"},
+    {"category": "Neurodevelopmental", "name": "HelpGuide – Adult ADHD", "url": "https://www.helpguide.org/articles/adhd-add/adhd-attention-deficit-disorder-in-adults.htm"},
+
+
+    # 13) Neurocognitive
+    {"category": "Neurocognitive", "name": "Alzheimer's Association", "url": "https://www.alz.org/"},
+    {"category": "Neurocognitive", "name": "NIA – Dementia Resources", "url": "https://www.nia.nih.gov/health/alzheimers"},
+    {"category": "Neurocognitive", "name": "Family Caregiver Alliance", "url": "https://www.caregiver.org/"},
+    {"category": "Neurocognitive", "name": "Brain Injury Association", "url": "https://www.biausa.org/"},
+    {"category": "Neurocognitive", "name": "Lewy Body Dementia Assoc.", "url": "https://www.lbda.org/"},
+    {"category": "Neurocognitive", "name": "Mayo Clinic – Dementia", "url": "https://www.mayoclinic.org/diseases-conditions/dementia/symptoms-causes/syc-20352013"},
+    {"category": "Neurocognitive", "name": "BrightFocus – Alzheimer's", "url": "https://www.brightfocus.org/alzheimers"},
+    {"category": "Neurocognitive", "name": "Dementia Society", "url": "https://www.dementiasociety.org/"},
+    {"category": "Neurocognitive", "name": "Johns Hopkins – Memory", "url": "https://www.hopkinsmedicine.org/psychiatry/specialty_areas/geriatric_psychiatry/"},
+    {"category": "Neurocognitive", "name": "WHO – Dementia Fact Sheet", "url": "https://www.who.int/news-room/fact-sheets/detail/dementia"},
+
+
+    # 14) Personality Disorders
+    {"category": "Personality Disorders", "name": "Mayo Clinic – Overview", "url": "https://www.mayoclinic.org/diseases-conditions/personality-disorders/symptoms-causes/syc-20354463"},
+    {"category": "Personality Disorders", "name": "NEABPD – Borderline Support", "url": "https://www.borderlinepersonalitydisorder.org/"},
+    {"category": "Personality Disorders", "name": "Cleveland Clinic – BPD", "url": "https://my.clevelandclinic.org/health/diseases/9762-borderline-personality-disorder-bpd"},
+    {"category": "Personality Disorders", "name": "HelpGuide – BPD Guide", "url": "https://www.helpguide.org/articles/mental-disorders/borderline-personality-disorder.htm"},
+    {"category": "Personality Disorders", "name": "Mind – Personality (UK)", "url": "https://www.mind.org.uk/information-support/types-of-mental-health-problems/personality-disorders/"},
+    {"category": "Personality Disorders", "name": "Psychology Today – Personality", "url": "https://www.psychologytoday.com/us/basics/personality-disorders"},
+    {"category": "Personality Disorders", "name": "BPD World – Support", "url": "https://www.bpdworld.org/"},
+    {"category": "Personality Disorders", "name": "Out of the Fog – PD Support", "url": "https://outofthefog.website/"},
+    {"category": "Personality Disorders", "name": "Project Air – Strategy (AU)", "url": "https://www.uow.edu.au/project-air/"},
+    {"category": "Personality Disorders", "name": "NAMI – Borderline Info", "url": "https://www.nami.org/About-Mental-Illness/Mental-Health-Conditions/Borderline-Personality-Disorder"},
+
+
+    # 15) Schizophrenia
+    {"category": "Schizophrenia", "name": "NIMH – Schizophrenia Overview", "url": "https://www.nimh.nih.gov/health/topics/schizophrenia"},
+    {"category": "Schizophrenia", "name": "S&P Action Alliance", "url": "https://sczaction.org/"},
+    {"category": "Schizophrenia", "name": "Mayo Clinic – Schizophrenia", "url": "https://www.mayoclinic.org/diseases-conditions/schizophrenia/symptoms-causes/syc-20354443"},
+    {"category": "Schizophrenia", "name": "NAMI – Schizophrenia Info", "url": "https://www.nami.org/About-Mental-Illness/Mental-Health-Conditions/Schizophrenia"},
+    {"category": "Schizophrenia", "name": "Psychiatry.org – Schizophrenia", "url": "https://www.psychiatry.org/patients-families/schizophrenia"},
+    {"category": "Schizophrenia", "name": "HelpGuide – Schizo Symptoms", "url": "https://www.helpguide.org/articles/mental-disorders/schizophrenia-signs-and-symptoms.htm"},
+    {"category": "Schizophrenia", "name": "Mind – Schizoaffective (UK)", "url": "https://www.mind.org.uk/information-support/types-of-mental-health-problems/schizoaffective-disorder/"},
+    {"category": "Schizophrenia", "name": "Hearing Voices Network", "url": "https://www.hearing-voices.org/"},
+    {"category": "Schizophrenia", "name": "Cleveland Clinic – Schizo Info", "url": "https://my.clevelandclinic.org/health/diseases/4568-schizophrenia"},
+    {"category": "Schizophrenia", "name": "WebMD – Schizophrenia Hub", "url": "https://www.webmd.com/schizophrenia/default.htm"},
+
+
+    # 16) Substance Use
+    {"category": "Substance Use", "name": "SAMHSA – Recovery Help", "url": "https://www.samhsa.gov/find-help/recovery"},
+    {"category": "Substance Use", "name": "NIDA – Drug Abuse Info", "url": "https://nida.nih.gov/"},
+    {"category": "Substance Use", "name": "Mayo Clinic – Addiction", "url": "https://www.mayoclinic.org/diseases-conditions/drug-addiction/symptoms-causes/syc-20365112"},
+    {"category": "Substance Use", "name": "Shatterproof – Resources", "url": "https://www.shatterproof.org/"},
+    {"category": "Substance Use", "name": "NIAAA – Alcohol Info", "url": "https://www.niaaa.nih.gov/"},
+    {"category": "Substance Use", "name": "SMART Recovery", "url": "https://www.smartrecovery.org/"},
+    {"category": "Substance Use", "name": "HelpGuide – Overcoming Abuse", "url": "https://www.helpguide.org/articles/addictions/overcoming-drug-addiction.htm"},
+    {"category": "Substance Use", "name": "NAMI – Substance Disorders", "url": "https://www.nami.org/About-Mental-Illness/Common-with-Mental-Illness/Substance-Use-Disorders"},
+    {"category": "Substance Use", "name": "Partnership to End Addiction", "url": "https://drugfree.org/"},
+    {"category": "Substance Use", "name": "ASAM – Addiction Medicine", "url": "https://www.asam.org/"},
+
+
+    # 17) Impulse Control
+    {"category": "Impulse Control", "name": "Mayo Clinic – Intermittent Explosive", "url": "https://www.mayoclinic.org/diseases-conditions/intermittent-explosive-disorder/symptoms-causes/syc-20373921"},
+    {"category": "Impulse Control", "name": "Psychology Today – Kleptomania", "url": "https://www.psychologytoday.com/us/conditions/kleptomania"},
+    {"category": "Impulse Control", "name": "Cleveland Clinic – Oppositional", "url": "https://my.clevelandclinic.org/health/diseases/9905-oppositional-defiant-disorder"},
+    {"category": "Impulse Control", "name": "Child Mind – ODD Guide", "url": "https://childmind.org/guide/oppositional-defiant-disorder/"},
+    {"category": "Impulse Control", "name": "AACAP – Conduct Disorder", "url": "https://www.aacap.org/AACAP/Families_and_Youth/Resource_Centers/Conduct_Disorder_Resource_Center/Home.aspx"},
+    {"category": "Impulse Control", "name": "Johns Hopkins – ODD", "url": "https://www.hopkinsmedicine.org/health/conditions-and-diseases/oppositional-defiant-disorder"},
+    {"category": "Impulse Control", "name": "Harvard – Impulse Control", "url": "https://www.health.harvard.edu/a_to_z/impulse-control-disorders-a-to-z"},
+    {"category": "Impulse Control", "name": "Verywell – Conduct Disorder", "url": "https://www.verywellmind.com/conduct-disorder-symptoms-and-diagnosis-4172101"},
+    {"category": "Impulse Control", "name": "Psychology Today – Pyromania", "url": "https://www.psychologytoday.com/us/conditions/pyromania"},
+    {"category": "Impulse Control", "name": "MHA – Conduct Disorder", "url": "https://www.mhanational.org/conditions/conduct-disorder"},
+
+
+    # 18) Crisis Support
+    {"category": "Crisis Support", "name": "988 Suicide & Crisis Lifeline", "url": "https://988lifeline.org/"},
+    {"category": "Crisis Support", "name": "AFSP – Suicide Prevention", "url": "https://afsp.org/"},
+    {"category": "Crisis Support", "name": "Crisis Text Line", "url": "https://www.crisistextline.org/"},
+    {"category": "Crisis Support", "name": "The Trevor Project", "url": "https://www.thetrevorproject.org/"},
+    {"category": "Crisis Support", "name": "Self-Injury Outreach (SIOS)", "url": "http://sioutreach.org/"},
+    {"category": "Crisis Support", "name": "HelpGuide – Suicide Prevention", "url": "https://www.helpguide.org/articles/suicide-prevention/suicide-prevention.htm"},
+    {"category": "Crisis Support", "name": "NAMI – Crisis Resources", "url": "https://www.nami.org/About-Mental-Illness/Common-with-Mental-Illness/Risk-of-Suicide"},
+    {"category": "Crisis Support", "name": "IASP – Global Helplines", "url": "https://www.iasp.info/resources/Crisis_Centres/"},
+    {"category": "Crisis Support", "name": "Speaking of Suicide", "url": "https://www.speakingofsuicide.com/resources/"},
+    {"category": "Crisis Support", "name": "Cornell – Self-Injury", "url": "https://www.selfinjury.org/"},
+
+
+    # 19) Grief & Loss
+    {"category": "Grief & Loss", "name": "GriefShare – Support Groups", "url": "https://www.griefshare.org/"},
+    {"category": "Grief & Loss", "name": "Dougy Center – Children's Grief", "url": "https://www.dougy.org/"},
+    {"category": "Grief & Loss", "name": "Modern Loss", "url": "https://modernloss.com/"},
+    {"category": "Grief & Loss", "name": "Compassionate Friends", "url": "https://www.compassionatefriends.org/"},
+    {"category": "Grief & Loss", "name": "HelpGuide – Coping with Loss", "url": "https://www.helpguide.org/articles/grief/coping-with-grief-and-loss.htm"},
+    {"category": "Grief & Loss", "name": "What's Your Grief?", "url": "https://whatsyourgrief.com/"},
+    {"category": "Grief & Loss", "name": "APA – Grief Support", "url": "https://www.apa.org/topics/grief"},
+    {"category": "Grief & Loss", "name": "OptionB – Resilience", "url": "https://optionb.org/"},
+    {"category": "Grief & Loss", "name": "NHS – Bereavement (UK)", "url": "https://www.nhs.uk/mental-health/feelings-symptoms-behaviours/feelings-and-symptoms/grief-bereavement-loss/"},
+    {"category": "Grief & Loss", "name": "CancerCare – Bereavement", "url": "https://www.cancercare.org/tagged/bereavement"},
+
+
+    # 20) Workplace Health
+    {"category": "Workplace Health", "name": "APA – Workplace Well-being", "url": "https://www.apa.org/topics/workplace"},
+    {"category": "Workplace Health", "name": "MHA – Workplace Wellness", "url": "https://www.mhanational.org/workplace-mental-health"},
+    {"category": "Workplace Health", "name": "Psychiatry.org – Workplace", "url": "https://www.workplacementalhealth.org/"},
+    {"category": "Workplace Health", "name": "Mind – Workplace Hub (UK)", "url": "https://www.mind.org.uk/workplace/"},
+    {"category": "Workplace Health", "name": "Black Dog Institute (AU)", "url": "https://www.blackdoginstitute.org.au/education-services/workplace-mental-health-training/"},
+    {"category": "Workplace Health", "name": "WHO – Mental Health at Work", "url": "https://www.who.int/news-room/fact-sheets/detail/mental-health-at-work"},
+    {"category": "Workplace Health", "name": "CDC – Workplace Health", "url": "https://www.cdc.gov/workplacehealthpromotion/tools-resources/workplace-health/mental-health/index.html"},
+    {"category": "Workplace Health", "name": "Calm – Workplace Blog", "url": "https://www.calm.com/blog/workplace-wellness"},
+    {"category": "Workplace Health", "name": "SHRM – Resource Hub", "url": "https://www.shrm.org/resourcesandtools/pages/mental-health.aspx"},
+    {"category": "Workplace Health", "name": "NAMI – Workplace Info", "url": "https://www.nami.org/Advocacy/Policy-Priorities/Improving-Health/Mental-Health-in-the-Workplace"},
+]
+
+
+sites.sort(key=lambda x: (x["category"], x["name"]))
+search_var.trace_add("write", search_resources)
+
+
+win.mainloop()
